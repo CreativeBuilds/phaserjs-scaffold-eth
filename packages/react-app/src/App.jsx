@@ -31,6 +31,7 @@ import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
 import { useStaticJsonRPC } from "./hooks";
+import Game from "./components/Game/Game";
 
 const { ethers } = require("ethers");
 /*
@@ -56,12 +57,14 @@ const { ethers } = require("ethers");
 const initialNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
-const DEBUG = true;
-const NETWORKCHECK = true;
-const USE_BURNER_WALLET = true; // toggle burner wallet feature
+const DEBUG = false;
+const NETWORKCHECK = false;
+const USE_BURNER_WALLET = false; // toggle burner wallet feature
 const USE_NETWORK_SELECTOR = false;
 
 const web3Modal = Web3ModalSetup();
+
+// window.CLEAR_ON_REFRESH = true;
 
 // 🛰 providers
 const providers = [
@@ -244,6 +247,10 @@ function App(props) {
 
   const faucetAvailable = localProvider && localProvider.connection && targetNetwork.name.indexOf("local") !== -1;
 
+  const [ix, setIx] = React.useState(0);
+
+  useEffect(() => {setTimeout(() => {if(window.CLEAR_ON_REFRESH) console.clear(); setIx(ix + 1);}, 1000)}, [ix])
+
   return (
     <div className="App">
       {/* ✏️ Edit the header and change the title to your project name */}
@@ -274,6 +281,9 @@ function App(props) {
         </Menu.Item>
         <Menu.Item key="/subgraph">
           <Link to="/subgraph">Subgraph</Link>
+        </Menu.Item>
+        <Menu.Item key="/game">
+          <Link to="/game">Game</Link>
         </Menu.Item>
       </Menu>
 
@@ -350,6 +360,9 @@ function App(props) {
             writeContracts={writeContracts}
             mainnetProvider={mainnetProvider}
           />
+        </Route>
+        <Route path="/game">
+          <><div>The Game</div><Game width={800} height={600} i={ix} signer={userSigner}/></>
         </Route>
       </Switch>
 

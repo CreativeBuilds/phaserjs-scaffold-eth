@@ -67,3 +67,6 @@ yarn-error.log*
 
 # doc directory
 /doc
+
+# Game Server folder
+/packages/game-server/*.txt
