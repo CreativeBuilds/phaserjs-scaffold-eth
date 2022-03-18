@@ -13,8 +13,6 @@ const ACCESS_TOKENS = {};
 const ADDRESS_CONNECTION_MAP = {}; // address -> ws
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-console.log("Started!");
-
 // when a client connects, send them a message
 wss.on("connection", function connection(ws) {
 
@@ -30,37 +28,42 @@ wss.on("connection", function connection(ws) {
     try {
       switch (message.type) {
         case "getLoginCode":
-          GetLoginCode(message.data.address)
-            .then(async (code) => {
-              await ws.send(
-                JSON.stringify({
-                  type: "loginCode",
-                  data: {
-                    code: code,
-                  },
-                })
-              );
-              return code;
-            })
-            .then(console.log.bind(null, `Sent login code to ${message.data.address}!`))
-            .catch(console.warn);
+          GenerateAndSendLoginCode();
           break;
         case "login":
-          GetLoginCode(message.data.address)
-            .then((code) =>
-              Login(ws, message.data.address, message.data.code, code)
-            )
-            .catch(console.warn);
+          VerifyLoginCode();
 
           break;
       }
     } catch (err) {
       console.log(err);
     }
+
+      function VerifyLoginCode() {
+          GetLoginCode(message.data.address)
+              .then((code) => Login(ws, message.data.address, message.data.code, code)
+              )
+              .catch(console.warn);
+      }
+
+      function GenerateAndSendLoginCode() {
+          GetLoginCode(message.data.address)
+              .then(async (code) => {
+                  await ws.send(
+                      JSON.stringify({
+                          type: "loginCode",
+                          data: {
+                              code: code,
+                          },
+                      })
+                  );
+                  return code;
+              })
+              .then(console.log.bind(null, `Sent login code to ${message.data.address}!`))
+              .catch(console.warn);
+      }
   }
 });
-
-// TODO: add unique code generator
 
 async function GetLoginCode(address) {
   // check if user already has a code
@@ -88,6 +91,7 @@ async function Login(ws, address, code, loginCode) {
       })
     );
   }
+  
   // check that code is signed by address
   const actual_address = ethers.utils.verifyMessage(loginCode, code);
 
@@ -95,34 +99,40 @@ async function Login(ws, address, code, loginCode) {
     // generate access token
     const signedToken = await GenerateAccessToken();
     // send access token to client
-    console.log("Client is now connected!", address);
-    ws.send(
-      JSON.stringify({
-        type: "loginSuccess",
-        data: {
-          address: address,
-          auth: signedToken,
-        },
-      })
-    );
-    LOGIN_CODES[address] = null;
+    SendTokenToClient(signedToken);
     HandleLoginOnOtherTabs();
     ADDRESS_CONNECTION_MAP[address] = ws;
   } else {
-    console.log("Login failed!", address, actual_address);
-    // Invalidate code
-
-    ws.send(
-      JSON.stringify({
-        type: "loginFailed",
-        data: {
-          message: "Invalid code",
-        },
-      })
-    );
+    LoginFailed();
   }
 
   delete LOGIN_CODES[address];
+
+    function LoginFailed() {
+        console.log("Login failed!", address, actual_address);
+        ws.send(
+            JSON.stringify({
+                type: "loginFailed",
+                data: {
+                    message: "Invalid code",
+                },
+            })
+        );
+    }
+
+    function SendTokenToClient(signedToken) {
+        console.log("Client is now connected!", address);
+        ws.send(
+            JSON.stringify({
+                type: "loginSuccess",
+                data: {
+                    address: address,
+                    auth: signedToken,
+                },
+            })
+        );
+        LOGIN_CODES[address] = null;
+    }
 
     async function GenerateAccessToken() {
         const accessToken = ethers.utils.randomBytes(32);

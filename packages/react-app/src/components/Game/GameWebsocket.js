@@ -44,8 +44,7 @@ export class GameWebsocket extends WebSocket {
         switch (MESSAGE.type) {
           case "loginCode":
             this.code = MESSAGE.data.code;
-            await this.SignAndSendCode();
-
+            console.log("GOT CODE", this.code);
             break;
           case "loginSuccess":
             const { address, auth } = MESSAGE.data;
@@ -83,6 +82,7 @@ export class GameWebsocket extends WebSocket {
         }, 10000);
       });
     if (this.auth) return console.warn("already logged in, please invalidate auth");
+    if (this.code) return this.SignAndSendCode();
 
     this.signer = signer;
     // check cache for access token
@@ -107,6 +107,7 @@ export class GameWebsocket extends WebSocket {
   }
 
   async SignAndSendCode() {
+      console.log(new Error("Shouldbe implemented"))
     if (!this.code) throw new Error("No code!");
     const ADDR = await this.signer.getAddress();
     const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";

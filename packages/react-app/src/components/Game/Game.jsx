@@ -121,7 +121,6 @@ export default function Game(props) {
   }
 
   function update(time, info) {
-    const GAME = this;
     if(info.loadingState == 0 && info.loggedIn) {
       SetLoadingState(1);
       StartGame(this);
