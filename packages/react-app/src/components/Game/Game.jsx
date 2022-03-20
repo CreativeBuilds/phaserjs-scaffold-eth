@@ -2,19 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import Phaser from "phaser";
 import "./Game.css";
 import { GameWebsocket } from "./GameWebsocket";
-
-/**
- * @description Used to share information between React and Phaser
- *              without instatiating a new object
- */
-class SharedState {
-  constructor(obj = {}) {
-    for(let key in obj) {
-      this[key] = obj[key];
-    }
-  }
-}
-
+import { SharedState } from "./SharedState";
 
 export default function Game(props) {
   const NECESSARY_PROPS = ["width", "height"];
@@ -27,27 +15,27 @@ export default function Game(props) {
 
   const [renderedOnce, setRenderedOnce] = React.useState(false);
   const [game, setGame] = React.useState(null);
-  const [info, setInfo] = React.useState(null);
+  const [sharedState, setSharedState] = React.useState(null);
   const [loggedIn, setLoggedIn] = React.useState(false);
   const Login = useMemo(() => {return () => setLoggedIn(true)}, [setLoggedIn])
-  const GameSocket = useMemo(() => new GameWebsocket("ws://localhost:9090/", Login), [Login]);
+  const GameSocket = useMemo(() => new GameWebsocket({url: "ws://localhost:9090/", onlogin: Login}), [Login]);
 
   
   // 0 init, 1 running, 2 error
   const [loadingState, SetLoadingState] = React.useState(0);
 
   useEffect(() => {
-    if(!info) return;
-    info.loggedIn = loggedIn;
-    info.loadingState = loadingState;
-  }, [loggedIn, loadingState, info]);
+    if(!sharedState) return;
+    sharedState.loggedIn = loggedIn;
+    sharedState.loadingState = loadingState;
+  }, [loggedIn, loadingState, sharedState]);
 
 
   useEffect(() => {
     console.log("SIGNER", props.signer);
     if(!GameSocket || !props.signer) return;
     // Intiate login process
-    GameSocket.login(props.signer).catch(err => {
+    GameSocket.Login(props.signer).catch(err => {
       console.log("Error logging in", err);
     });
   }, [GameSocket, props.signer])
@@ -65,9 +53,11 @@ export default function Game(props) {
         game.destroy();
         document.getElementById("game-container").innerHTML = "";
       }
-      const info = new SharedState({
-        loadingState
+      const _state = new SharedState({
+        loadingState,
+        GameSocket
       });
+      GameSocket.SetSharedState(_state);
       setGame(
         new Phaser.Game({
           type: Phaser.AUTO,
@@ -78,21 +68,16 @@ export default function Game(props) {
             preload: preload,
             create: create,
             update: function (ms) {
-              return update.bind(this)(ms, info)
+              return update.bind(this)(ms, _state)
             },
           },
         }),
       );
-      setInfo(info);
+      setSharedState(_state);
     }
   }, [renderedOnce, props.width, props.height, loggedIn]);
 
   useEffect(() => setRenderedOnce(true), []);
-
-  useEffect(() => {
-    if(!info) return;
-    setInterval(() => {info[1] += "a"}, 1000)
-  }, [info])
 
   return (
     <div className="game">
@@ -100,7 +85,7 @@ export default function Game(props) {
       <div className="game-overlay">
         <div className="col">
         {!loggedIn ? <button onClick={() => {
-          GameSocket.login(props.signer).catch(console.error);
+          GameSocket.Login(props.signer).catch(console.error);
         }}>LOGIN</button> : null}
         </div>
       </div>
@@ -110,7 +95,10 @@ export default function Game(props) {
   function preload() {}
 
   function create() {
+    if(!sharedState) return;
     const BACKGROUND = 0x0c0b0b;
+    const KEYBOARD = this.input.keyboard;
+
     this.add.rectangle(
       this.sys.game.config.width / 2,
       this.sys.game.config.height / 2,
@@ -118,12 +106,36 @@ export default function Game(props) {
       this.sys.game.config.height,
       BACKGROUND,
     );
+
+    KEYBOARD.on("keydown", event => {
+      sharedState.UpdateKey(event.key.toLowerCase(), true)
+    });
+    KEYBOARD.on("keyup", event => {
+      sharedState.UpdateKey(event.key  .toLowerCase(), false)
+    });
   }
 
-  function update(time, info) {
-    if(info.loadingState == 0 && info.loggedIn) {
+  function update(time, SHAREDSTATE) {
+    if(!SHAREDSTATE) return;
+    if(SHAREDSTATE.loadingState == 0 && SHAREDSTATE.loggedIn) {
       SetLoadingState(1);
       StartGame(this);
+    }
+
+    DrawPlayers(this);
+
+    function DrawPlayers(GAME) {
+      const PLAYERS = SHAREDSTATE.$players.getValue();
+      PLAYERS.forEach(player => {
+        // if player isnt spawned, create game object
+        if(!player.isSpawned()) {
+          console.log("adding rectangle", player);
+          const gameObject = GAME.add.rectangle((GAME.sys.game.config.width / 2) + (player.x), (GAME.sys.game.config.height / 2) + (player.y), 24, 24, 0x00ff00);
+          player.setGameObject(gameObject);
+        } else {
+          player.UpdatePosition(GAME);
+        }
+      });
     }
   }
 

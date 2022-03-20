@@ -19846,6 +19846,13 @@ rxjs@6, rxjs@^6.4.0, rxjs@^6.6.3:
   dependencies:
     tslib "^1.9.0"
 
+rxjs@^7.5.5:
+  version "7.5.5"
+  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.5.5.tgz#2ebad89af0f560f460ad5cc4213219e1f7dd4e9f"
+  integrity sha512-sy+H0pQofO95VDmFLzyaw9xNJU4KTRSwQIGM6+iG3SypAtCiLDzpeG8sJrNCWn2Up9km+KhkvTdbkrdy+yzZdw==
+  dependencies:
+    tslib "^2.1.0"
+
 s3-folder-upload@^2.3.1:
   version "2.3.5"
   resolved "https://registry.yarnpkg.com/s3-folder-upload/-/s3-folder-upload-2.3.5.tgz#c4149c2427cec49e7fe49bd8e87e01b60e8bddbe"

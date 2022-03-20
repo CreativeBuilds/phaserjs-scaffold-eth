@@ -26,9 +26,10 @@ export class GameWebsocket extends WebSocket {
   auth; // access token is the auth code
   code; // code to sign to get auth code
   signer; // ethers.Signer
+  SHAREDSTATE; // ./SharedState.js class
   onlogin = () => {};
 
-  constructor(url, onlogin) {
+  constructor({ url, onlogin}) {
     if (url.includes("localhost")) console.warn("NOT MEANT FOR PRODUCTION: RUNNING ON LOCALHOST");
     super(url);
     console.log("BOOT WEBSOCKET")
@@ -44,7 +45,6 @@ export class GameWebsocket extends WebSocket {
         switch (MESSAGE.type) {
           case "loginCode":
             this.code = MESSAGE.data.code;
-            console.log("GOT CODE", this.code);
             break;
           case "loginSuccess":
             const { address, auth } = MESSAGE.data;
@@ -53,12 +53,14 @@ export class GameWebsocket extends WebSocket {
             // access token is the auth code
             // it needs to be stored in cache
             UpdateAccessToken(auth, address);
+            console.log("Got auth token")
             this.auth = auth;
-            console.log("LOGGED IN!")
             this.onlogin();
             break;
-          case "loginSuccess":
-            break;
+          case "updated_positions":
+              const data = MESSAGE.data;
+              this.SHAREDSTATE.UpdatePlayerPositions(data.players);
+            break;           
         }
       } catch (err) {
         // if address mismatch, clearStoredCache and refresh page, else log error
@@ -70,7 +72,11 @@ export class GameWebsocket extends WebSocket {
     }
   }
 
-  async login(signer) {
+  SetSharedState(_state) {
+    this.SHAREDSTATE = _state;
+  }
+
+  async Login(signer) {
       if(!signer) throw new Error("No signer!");
     const connected = this.readyState === WebSocket.OPEN;
     console.log("Logging in")
@@ -90,6 +96,7 @@ export class GameWebsocket extends WebSocket {
     const auth = localStorage.getItem("accessToken");
     const address = localStorage.getItem("address");
     if (!!address && address == signer.address) {
+        console.log("Got auth from localstorage!")
       this.auth = auth;
       return this.SignAndSendCode();
     }
@@ -121,6 +128,28 @@ export class GameWebsocket extends WebSocket {
           code: code,
           address: ADDR,
         },
+      }),
+    );
+  }
+
+  async SpawnPlayer() {
+      this.send(
+        JSON.stringify({
+            type: "spawn",
+            data: {}
+        })
+      )
+  }
+
+  // {w,a,s,d} 
+  async SendPlayerMovement(keys) {
+    if (!this.auth) throw new Error("Not logged in!");
+    const { w, a, s, d } = keys;
+    const MOVEMENT = { w: !!w, a: !!a, s: !!s, d: !!d };
+    this.send(
+      JSON.stringify({
+        type: "movement",
+        data: MOVEMENT,
       }),
     );
   }
