@@ -16,7 +16,7 @@ let LAST_FRAME;
 
 function UpdateGameState() {
 		// Run once per 20ms
-		const DELTA = 20;
+		const DELTA = 100;
 		const DELTA_S = DELTA / 1000;
 	``
 		// log time since last frame
@@ -45,18 +45,20 @@ function UpdatePlayerPositions(NOW, DELTA_S) {
 	let updated_players = [];
 	for (const address in PLAYERS) {
 		const player = PLAYERS[address];
-		if(NOW - player.movement.last_updated > 250) return;
+		// if(NOW - player.movement.last_updated > 250) return;
 		const previous_position = {x: player.x, y: player.y};
 		player.move(DELTA_S);
 		const new_position = {x: player.x, y: player.y};
 		const delta = {x: new_position.x - previous_position.x, y: new_position.y - previous_position.y};
 		// if moved, log "User moved x:, y: from previous position"
-		if (delta.x !== 0 || delta.y !== 0) {
+		if (previous_position.x !== new_position.x || previous_position.y !== new_position.y) {
+			console.log(player.x, "player")
 			updated_players.push(player);
 		}
 	}
 
 	if(updated_players.length > 0) {
+		console.log("Updated player positions", updated_players.length);
 		BroadcastPlayerPositions(updated_players);
 	}
 
@@ -126,9 +128,7 @@ class Player extends Entity {
 	 */
 	move(DELTA_S) {
 		const BASE_SPEED = 1 / 1.5 * 24; // 1 square per 1.5 seconds * 24px per square
-		if(Date.now() - this.movement.last_updated > 100) {
-			this.movement = {w: false, a: false, s: false, d: false, last_updated: this.movement.last_updated};;
-		}
+			
 		if(this.movement.d) this.x += MY_SPEED("d");
 		if(this.movement.a) this.x -= MY_SPEED("a");
 		if(this.movement.s) this.y += MY_SPEED("s");
@@ -181,13 +181,37 @@ wss.on("connection", function connection(ws) {
 
 	  function MovePlayer() {
 			if(!PLAYER) return;
-
-			const update_movement = message.data;
-			PLAYERS[PLAYER_ADDRESS].movement.w = !!update_movement.w;
-			PLAYERS[PLAYER_ADDRESS].movement.a = !!update_movement.a;
-			PLAYERS[PLAYER_ADDRESS].movement.s = !!update_movement.s;
-			PLAYERS[PLAYER_ADDRESS].movement.d = !!update_movement.d;
-			PLAYERS[PLAYER_ADDRESS].movement.last_updated = Date.now()
+			if(!message.data.w && !message.data.a && !message.data.s && !message.data.d) {
+				if(Date.now() - PLAYERS[PLAYER_ADDRESS].movement.last_updated > 100) {
+				// if all false, update, else, return and dont update 
+					PLAYERS[PLAYER_ADDRESS].movement =  {
+						w: false,
+						a: false,
+						s: false,
+						d: false,
+						last_updated: Date.now(),
+					}
+					return;
+				} else {
+					setTimeout(() => {
+						PLAYERS[PLAYER_ADDRESS].movement =  {
+							w: false,
+							a: false,
+							s: false,
+							d: false,
+							last_updated: Date.now(),
+						}
+					}, Date.now() - PLAYERS[PLAYER_ADDRESS].movement.last_updated + 5);
+				}
+			} else {
+				PLAYERS[PLAYER_ADDRESS].movement =  {
+					w: message.data.w,
+					a: message.data.a,
+					s: message.data.s,
+					d: message.data.d,
+					last_updated: Date.now(),
+				}
+			}
 		}
 
 		function SpawnPlayer() {

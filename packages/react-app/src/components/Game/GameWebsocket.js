@@ -1,5 +1,5 @@
 const BOOT_TIME = Date.now();
-const LOG = true;
+const LOG = false;
 
 function clearStoredCache(key) {
   localStorage.removeItem(key);

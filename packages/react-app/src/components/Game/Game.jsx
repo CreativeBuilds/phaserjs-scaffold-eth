@@ -117,27 +117,32 @@ export default function Game(props) {
 
   function update(time, SHAREDSTATE) {
     if(!SHAREDSTATE) return;
+    if(SHAREDSTATE.time) SHAREDSTATE.last_frame = SHAREDSTATE.time;
+    else SHAREDSTATE.last_frame = time;
+    SHAREDSTATE.time = time;
     if(SHAREDSTATE.loadingState == 0 && SHAREDSTATE.loggedIn) {
       SetLoadingState(1);
       StartGame(this);
     }
+    
+    DrawPlayers(this, SHAREDSTATE);
+  }
 
-    DrawPlayers(this);
-
-    function DrawPlayers(GAME) {
+  function DrawPlayers(GAME, SHAREDSTATE) {
       const PLAYERS = SHAREDSTATE.$players.getValue();
       PLAYERS.forEach(player => {
         // if player isnt spawned, create game object
         if(!player.isSpawned()) {
           console.log("adding rectangle", player);
-          const gameObject = GAME.add.rectangle((GAME.sys.game.config.width / 2) + (player.x), (GAME.sys.game.config.height / 2) + (player.y), 24, 24, 0x00ff00);
-          player.setGameObject(gameObject);
+          const UserGroup = GAME.add.group();
+          const gameObject = GAME.add.circle((GAME.sys.game.config.width / 2) + (player.x), (GAME.sys.game.config.height / 2) + (player.y), 24, 0x00ff00);
+          UserGroup.add(gameObject);
+          player.setGameObject(UserGroup);
         } else {
-          player.UpdatePosition(GAME);
+          player.UpdatePositionOnScreen(GAME, SHAREDSTATE);
         }
       });
     }
-  }
 
   function StartGame(GAME) {
     // blue background
