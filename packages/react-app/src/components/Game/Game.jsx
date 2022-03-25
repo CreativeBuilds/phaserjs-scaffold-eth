@@ -20,6 +20,8 @@ export default function Game(props) {
   const Login = useMemo(() => {return () => setLoggedIn(true)}, [setLoggedIn])
   const GameSocket = useMemo(() => new GameWebsocket({url: "ws://localhost:9090/", onlogin: Login}), [Login]);
 
+  const [addy, setAddy] = React.useState(null);
+
   
   // 0 init, 1 running, 2 error
   const [loadingState, SetLoadingState] = React.useState(0);
@@ -38,11 +40,18 @@ export default function Game(props) {
     GameSocket.Login(props.signer).catch(err => {
       console.log("Error logging in", err);
     });
+
+    (async () => {
+      if(props.signer && sharedState)
+      {
+        sharedState.address = await props.signer.getAddress();
+        setAddy(sharedState.address);
+      }
+    })();
+
   }, [GameSocket, props.signer])
 
-  useEffect(() => {
-    console.log("Game!: ", game);
-  }, [game]);
+
 
   /**
    * After frist render, create a new game object whenever width/height changes but not before removing the last
@@ -130,18 +139,56 @@ export default function Game(props) {
 
   function DrawPlayers(GAME, SHAREDSTATE) {
       const PLAYERS = SHAREDSTATE.$players.getValue();
+      const HALF_WIDTH = GAME.sys.game.config.width / 2;
+      const HALF_HEIGHT = GAME.sys.game.config.height / 2;
       PLAYERS.forEach(player => {
         // if player isnt spawned, create game object
         if(!player.isSpawned()) {
           console.log("adding rectangle", player);
           const UserGroup = GAME.add.group();
-          const gameObject = GAME.add.circle((GAME.sys.game.config.width / 2) + (player.x), (GAME.sys.game.config.height / 2) + (player.y), 24, 0x00ff00);
-          UserGroup.add(gameObject);
+          const PlayerBody = GAME.add.circle((HALF_WIDTH) + (player.x), (HALF_HEIGHT) + (player.y), 24, 0x00ff00);
+          const FORMATTED_NAME = player.id.substr(0, 5) + "..." + player.id.substr(player.id.length - 3, 3);
+          const PlayerTitle = GAME.add.text(PlayerBody.x - ((FORMATTED_NAME.length / 2) * 24), PlayerBody.y - 24, FORMATTED_NAME, {
+            fontSize: '20px',
+            fill: '#fff'
+          });
+          UserGroup.add(PlayerBody);
+          UserGroup.add(PlayerTitle);
           player.setGameObject(UserGroup);
+          if(player.id == addy) {
+            // animate camera to player
+            const HALF_WIDTH = GAME.sys.game.config.width / 2;
+            const HALF_HEIGHT = GAME.sys.game.config.height / 2;
+            const x = player.destination?.x || player.x;
+            const y = player.destination?.y || player.y;
+  
+            const CAMERA = GAME.cameras.main;
+            const CURRENT_X = CAMERA.worldView.x + HALF_WIDTH;
+            const CURRENT_Y = CAMERA.worldView.y + HALF_HEIGHT;
+  
+            const DISTANCE_X = CURRENT_X - ((x * 24) + HALF_WIDTH);
+            const DISTANCE_Y = CURRENT_Y - ((y * 24) + HALF_HEIGHT);
+            
+            const TOTAL_DISTANCE = Math.sqrt(DISTANCE_X * DISTANCE_X + DISTANCE_Y * DISTANCE_Y);
+  
+            // have camera tracker player._gameObject
+            if(player.isSpawned())
+              CAMERA.startFollow(player._gameObject.getChildren()[0], false, 0.85, 0.85);
+            // if(TOTAL_DISTANCE < 24) return;
+            // else
+            // GAME.cameras.main.pan((x * 24) + HALF_WIDTH, (y * 24) + HALF_HEIGHT, 200);
+            
+          } else {
+            console.log(player.id, addy, "mushroom")
+          }
         } else {
           player.UpdatePositionOnScreen(GAME, SHAREDSTATE);
         }
+
+        // if player id is our wallet address, center camera on us
+        
       });
+      
     }
 
   function StartGame(GAME) {

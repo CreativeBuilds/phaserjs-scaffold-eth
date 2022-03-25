@@ -52,7 +52,6 @@ function UpdatePlayerPositions(NOW, DELTA_S) {
 		const delta = {x: new_position.x - previous_position.x, y: new_position.y - previous_position.y};
 		// if moved, log "User moved x:, y: from previous position"
 		if (previous_position.x !== new_position.x || previous_position.y !== new_position.y) {
-			console.log(player.x, "player")
 			updated_players.push(player);
 		}
 	}
@@ -92,7 +91,8 @@ function BroadcastPlayerPositions(players) {
 		data: {players: broadcast_players},
 	});
 
-	for (const ws of Object.values(ADDRESS_CONNECTION_MAP)) {
+	for (const address of Object.key(ADDRESS_CONNECTION_MAP)) {
+		const ws = ADDRESS_CONNECTION_MAP[address];
 		ws.send(message);
 	}
 

@@ -15,10 +15,23 @@ class Entity {
 }
 
 class Destination extends Entity {
+  created_at = Date.now();
   arrives_at;
-  constructor({x, y, arrivesAt, id}) {
+  start_x;
+  start_y;
+  constructor({x, start_x, y, start_y, arrivesAt, id}) {
     super({x, y, id});
+    this.start_x = start_x;
+    this.start_y = start_y;
     this.arrives_at = arrivesAt;
+  }
+
+  lerp() {
+    let t = (Date.now() - this.created_at) / (this.arrives_at - this.created_at);
+    if (t > 1) t = 1;
+    let x = this.start_x + (this.x - this.start_x) * t;
+    let y = this.start_y + (this.y - this.start_y) * t;
+    return {x, y}
   }
 }
 
@@ -37,31 +50,19 @@ class Player extends Entity {
     const DELTA_S = TIME_SINCE_LAST_FRAME / 1000;
 
     if(this.destination) {
-      const DESTINATION_X = this.destination.x;
-      const DESTINATION_Y = this.destination.y;
-      const DESTINATION_ARRIVES_AT = this.destination.arrives_at;
-      const CURRENT_TIME = Date.now();
-      const DESTINATION_ARRIVED = CURRENT_TIME >= DESTINATION_ARRIVES_AT + 50;
-      if(DESTINATION_ARRIVED) {
-        this.destination = null;
-        this.x = DESTINATION_X;
-        this.y = DESTINATION_Y;
-      } else {
-        const DESTINATION_X_DELTA = DESTINATION_X - this.x;
-        const DESTINATION_Y_DELTA = DESTINATION_Y - this.y;
-        this.x += DESTINATION_X_DELTA * DELTA_S * TIME_SINCE_LAST_FRAME;
-        this.y += DESTINATION_Y_DELTA * DELTA_S * TIME_SINCE_LAST_FRAME;
-      }
+      const {x, y} = this.destination.lerp();
+
+      this.x = x;
+      this.y = y;
     }
-    console.log(this.x, this.y);
 
     if (this._gameObject) {
-      let index = 0;
-      this._gameObject.getChildren().forEach(part => {
-        part.x = (GAME.sys.game.config.width / 2) + (this.x * 24)
-        part.y = (GAME.sys.game.config.height / 2) + (this.y * 24)
-        index++;
-      })
+      const BODY = this._gameObject.getChildren()[0]
+      const NAME_PLATE = this._gameObject.getChildren()[1]
+      BODY.x = (GAME.sys.game.config.width / 2) + (this.x * 24)
+      BODY.y = (GAME.sys.game.config.height / 2) + (this.y * 24)
+      NAME_PLATE.x = BODY.x - (NAME_PLATE.width / 2)
+      NAME_PLATE.y = BODY.y - (NAME_PLATE.height * 2.5)
     }
   }
 
@@ -76,6 +77,7 @@ class Player extends Entity {
  *              without instatiating a new object
  */
 export class SharedState {
+  address; // the web3 address of the player
   time; // ms since epoch of canvas
   last_frame; // ms of last frame
   $keyboard = new BehaviorSubject({}); //RXJS BehaviorSubject for keyboard input
@@ -83,6 +85,7 @@ export class SharedState {
   GameSocket; // ./GameWebsocket.js class object
 
   constructor(obj = {}) {
+    this.address = null;
     for (let key in obj) {
       this[key] = obj[key];
     }
@@ -121,8 +124,10 @@ export class SharedState {
         // create destination object
         const DESTINATION = new Destination({
           x: player.position.x,
+          start_x: PLAYER_EXISTS.x,
           y: player.position.y,
-          arrivesAt: Date.now() + 40, // 95ms = 1 update
+          start_y: PLAYER_EXISTS.y,
+          arrivesAt: Date.now() + 95, // 95ms = 1 update
         })
         // update player
         PLAYER_EXISTS.destination = DESTINATION;
